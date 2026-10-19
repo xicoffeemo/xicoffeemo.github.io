@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-100 text-slate-800">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>咖啡店會員儲值與消費管理系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              coffee: {
+                50: '#fdf8f6',
+                100: '#f2e8e5',
+                200: '#e4d0cb',
+                300: '#d2b2aa',
+                400: '#bd8e82',
+                500: '#a76f62',
+                600: '#8f574a',
+                700: '#754339',
+                800: '#613830',
+                900: '#52302a',
+                950: '#2c1815',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(203, 213, 225, 0.7);
+        }
+        .stat-value {
+            font-size: clamp(0.9rem, 1.6vw, 1.5rem);
+            line-height: 1.25;
+            word-break: break-all;
+        }
+        .balance-value {
+            font-size: clamp(0.95rem, 1.4vw, 1.25rem);
+            line-height: 1.25;
+            word-break: break-all;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 3px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.25);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col bg-slate-100">
+
+    <header class="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
+                <div class="p-2 bg-amber-600 rounded-xl shadow-md text-white flex-shrink-0">
+                    <i class="fa-solid fa-mug-hot text-lg sm:text-xl"></i>
+                </div>
+                <div class="truncate">
+                    <h1 class="font-bold text-base sm:text-lg text-slate-800 leading-tight tracking-wide flex items-center gap-2 truncate">
+                        <span class="truncate">Café VIP Member System</span>
+                        <span id="connection-badge" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 font-normal hidden sm:inline-block">未連線 Supabase</span>
+                    </h1>
+                    <p class="text-[11px] sm:text-xs text-slate-500 truncate">咖啡店會員儲值與消費管理系統 (Supabase 雲端版)</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <button onclick="openModal('supabase-config-modal')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs rounded-xl font-medium transition flex items-center gap-1.5 shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-database text-amber-400"></i> <span class="hidden sm:inline">Supabase 設定</span>
+                </button>
+                <div id="auth-user-info" class="hidden items-center gap-2">
+                    <span id="user-email-tag" class="text-xs bg-amber-50 text-amber-800 px-2.5 py-1.5 rounded-xl border border-amber-200 font-medium">--</span>
+                    <button onclick="handleSignOut()" class="px-2.5 py-1.5 bg-slate-200 hover:bg-rose-100 hover:text-rose-700 text-slate-700 text-xs rounded-xl font-medium transition cursor-pointer" title="登出系統">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+                <span class="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl border border-slate-200 font-medium flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-regular fa-clock text-amber-600"></i> <span id="current-time">----/--/-- --:--</span>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <div id="login-container" class="max-w-md mx-auto my-auto p-4 w-full flex-grow flex items-center justify-center">
+        <div class="glass-panel w-full p-6 sm:p-8 rounded-2xl shadow-xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-amber-600 text-white rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-lg">
+                    <i class="fa-solid fa-mug-hot"></i>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-800">店家管理員登入</h2>
+                <p class="text-xs text-slate-500">請登入帳號以進行咖啡店會員儲值與消費管理</p>
+            </div>
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">電子郵件 / Email</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="email" id="login-email" required placeholder="manager@cafe.com" class="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼 / Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="password" id="login-password" required placeholder="••••••••" class="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <button type="submit" id="btn-login-submit" class="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-right-to-bracket"></i> 登入系統
+                </button>
+            </form>
+            <div class="text-center text-xs text-slate-400 pt-2 border-t border-slate-100">
+                尚未連線 Supabase？請點擊右上角「Supabase 設定」
+            </div>
+        </div>
+    </div>
+
+    <main id="app-dashboard" class="hidden max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-6 flex-grow w-full space-y-4 sm:space-y-6">
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+            <div class="glass-panel p-2.5 sm:p-4 rounded-2xl shadow-sm flex items-center space-x-2 sm:space-x-4 min-w-0">
+                <div class="p-2 sm:p-3 bg-amber-100 text-amber-800 rounded-xl flex-shrink-0">
+                    <i class="fa-solid fa-users text-lg sm:text-2xl"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] sm:text-xs text-slate-500 font-medium whitespace-nowrap">總會員人數</p>
+                    <h3 class="stat-value font-bold text-slate-800" id="stat-total-members">0</h3>
+                </div>
+            </div>
+            <div class="glass-panel p-2.5 sm:p-4 rounded-2xl shadow-sm flex items-center space-x-2 sm:space-x-4 min-w-0">
+                <div class="p-2 sm:p-3 bg-emerald-100 text-emerald-700 rounded-xl flex-shrink-0">
+                    <i class="fa-solid fa-wallet text-lg sm:text-2xl"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] sm:text-xs text-slate-500 font-medium whitespace-nowrap">總儲值金本金</p>
+                    <h3 class="stat-value font-bold text-slate-800" id="stat-total-deposit">$0</h3>
+                </div>
+            </div>
+            <div class="glass-panel p-2.5 sm:p-4 rounded-2xl shadow-sm flex items-center space-x-2 sm:space-x-4 min-w-0">
+                <div class="p-2 sm:p-3 bg-purple-100 text-purple-700 rounded-xl flex-shrink-0">
+                    <i class="fa-solid fa-gift text-lg sm:text-2xl"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] sm:text-xs text-slate-500 font-medium whitespace-nowrap">總發放贈送金</p>
+                    <h3 class="stat-value font-bold text-slate-800" id="stat-total-bonus">$0</h3>
+                </div>
+            </div>
+            <div class="glass-panel p-2.5 sm:p-4 rounded-2xl shadow-sm flex items-center space-x-2 sm:space-x-4 min-w-0">
+                <div class="p-2 sm:p-3 bg-rose-100 text-rose-700 rounded-xl flex-shrink-0">
+                    <i class="fa-solid fa-receipt text-lg sm:text-2xl"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] sm:text-xs text-slate-500 font-medium whitespace-nowrap">累計消費金額</p>
+                    <h3 class="stat-value font-bold text-slate-800" id="stat-total-spent">$0</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Responsive Grid: Split Screen -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-6 items-start">
+            
+            <!-- Left Side: Member List Panel -->
+            <div class="col-span-1 md:col-span-5 flex flex-col glass-panel rounded-2xl shadow-sm overflow-hidden min-h-[250px] md:h-[720px]">
+                <!-- Search & Add Bar -->
+                <div class="p-2.5 sm:p-4 bg-white/50 border-b border-slate-200 flex flex-col sm:flex-row gap-2 justify-between items-center shrink-0">
+                    <div class="relative w-full">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="search-input" placeholder="搜尋電話或姓名..." class="w-full pl-8 pr-3 py-1.5 sm:py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+                    <button onclick="openAddMemberModal()" class="w-full sm:w-auto px-3 py-1.5 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-md active:scale-95 flex items-center justify-center whitespace-nowrap cursor-pointer">
+                        <i class="fa-solid fa-user-plus mr-1.5"></i> 新增會員
+                    </button>
+                </div>
+
+                <!-- Members List Container -->
+                <div class="flex-grow overflow-y-auto custom-scroll flex flex-col justify-start min-h-0" id="member-list">
+                    <!-- Members inserted dynamically via JS -->
+                </div>
+
+                <!-- Members List Pagination Controls -->
+                <div id="member-pagination" class="p-2.5 sm:p-3 border-t border-slate-200 bg-white/50 flex justify-between items-center text-xs shrink-0 min-h-[44px]">
+                    <span class="text-[11px] text-slate-500" id="member-page-info">頁次 0 / 0</span>
+                    <div class="flex items-center space-x-1.5">
+                        <button type="button" onclick="changeMemberPage(-1)" id="btn-member-prev-page" class="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-slate-700 transition font-medium cursor-pointer">
+                            <i class="fa-solid fa-chevron-left mr-1"></i>上一頁
+                        </button>
+                        <button type="button" onclick="changeMemberPage(1)" id="btn-member-next-page" class="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-slate-700 transition font-medium cursor-pointer">
+                            下一頁<i class="fa-solid fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-span-1 md:col-span-7 flex flex-col min-h-0 md:h-[720px]">
+                <!-- No Selection Placeholder -->
+                <div id="no-member-selected" class="glass-panel rounded-2xl shadow-sm p-6 sm:p-12 text-center flex flex-col items-center justify-center min-h-[250px] md:h-[720px]">
+                    <div class="w-16 h-16 sm:w-20 sm:h-20 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mb-4 text-2xl sm:text-3xl shadow-sm">
+                        <i class="fa-solid fa-address-card"></i>
+                    </div>
+                    <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-1">尚未選擇會員</h3>
+                    <p class="text-slate-500 text-xs sm:text-sm max-w-sm">請從左側列表中選擇一名會員以檢視詳細資料、進行儲值或扣款消費紀錄。</p>
+                </div>
+
+                <!-- Selected Member Detail Panel -->
+                <div id="member-detail-panel" class="hidden flex-col h-full space-y-3 sm:space-y-4 min-h-0">
+                    <!-- Card 1: Info & Balances -->
+                    <div class="glass-panel rounded-2xl shadow-sm p-3.5 sm:p-5 relative overflow-hidden shrink-0">
+                        <div class="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                        
+                        <div class="flex justify-between items-start mb-3 sm:mb-4">
+                            <div>
+                                <div class="flex items-center space-x-1.5 sm:space-x-2">
+                                    <h2 class="text-lg sm:text-2xl font-bold text-slate-800" id="detail-name">---</h2>
+                                    <span class="text-[10px] sm:text-xs bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full font-medium" id="detail-gender">VIP</span>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-0.5"><i class="fa-solid fa-phone mr-1 text-slate-400"></i><span id="detail-phone">---</span> | 生日: <span id="detail-birthday">--</span></p>
+                            </div>
+                            <div class="flex items-center space-x-1.5 sm:space-x-2 relative z-10">
+                                <button type="button" onclick="editCurrentMember()" class="p-2 sm:p-3 min-w-[36px] sm:min-w-[44px] min-h-[36px] sm:min-h-[44px] bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition flex items-center justify-center text-xs sm:text-sm font-medium cursor-pointer shadow-sm border border-slate-300 active:scale-95" title="編輯資料">
+                                    <i class="fa-solid fa-pen-to-square sm:mr-1.5 pointer-events-none text-amber-600"></i>
+                                    <span class="hidden sm:inline pointer-events-none">編輯</span>
+                                </button>
+                                <button type="button" onclick="confirmDeleteCurrentMember()" class="p-2 sm:p-3 min-w-[36px] sm:min-w-[44px] min-h-[36px] sm:min-h-[44px] bg-white hover:bg-rose-50 text-rose-600 rounded-xl transition flex items-center justify-center text-xs sm:text-sm font-medium cursor-pointer shadow-sm border border-rose-200 active:scale-95" title="刪除會員">
+                                    <i class="fa-solid fa-trash-can sm:mr-1.5 pointer-events-none"></i>
+                                    <span class="hidden sm:inline pointer-events-none">刪除</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Balances Grid -->
+                        <div class="flex flex-wrap gap-2.5 sm:gap-3 bg-slate-50/80 p-2.5 sm:p-3.5 rounded-xl border border-slate-200">
+                            <div class="flex-1 min-w-[90px]">
+                                <p class="text-[10px] sm:text-xs text-slate-500 mb-0.5 whitespace-nowrap">儲值金本金</p>
+                                <p class="balance-value font-bold text-emerald-600" id="detail-real-balance">$0</p>
+                            </div>
+                            <div class="flex-1 min-w-[90px]">
+                                <p class="text-[10px] sm:text-xs text-slate-500 mb-0.5 whitespace-nowrap">贈送金餘額</p>
+                                <p class="balance-value font-bold text-purple-600" id="detail-bonus-balance">$0</p>
+                            </div>
+                            <div class="flex-1 min-w-[90px]">
+                                <p class="text-[10px] sm:text-xs text-slate-500 mb-0.5 whitespace-nowrap">總可用餘額</p>
+                                <p class="balance-value font-bold text-amber-700" id="detail-total-balance">$0</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-2.5 text-[11px] sm:text-xs text-slate-500 flex justify-between items-center">
+                            <span>累計消費: <strong class="text-slate-700" id="detail-total-spent">$0</strong></span>
+                            <span>備註: <span id="detail-note" class="text-slate-700 font-normal">無</span></span>
+                        </div>
+
+                        <!-- Quick Action Buttons -->
+                        <div class="grid grid-cols-2 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                            <button onclick="openModal('deposit-modal')" class="py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center cursor-pointer">
+                                <i class="fa-solid fa-circle-plus mr-1.5"></i> 會員儲值
+                            </button>
+                            <button onclick="openModal('spend-modal')" class="py-2 sm:py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center cursor-pointer">
+                                <i class="fa-solid fa-bag-shopping mr-1.5"></i> 扣款消費
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Transaction History -->
+                    <div class="glass-panel rounded-2xl shadow-sm p-3.5 sm:p-4 flex-1 flex flex-col overflow-hidden min-h-[420px]">
+                        <div class="flex justify-between items-center mb-2.5 shrink-0">
+                            <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center">
+                                <i class="fa-solid fa-clock-rotate-left text-amber-600 mr-1.5"></i> 交易與消費紀錄
+                            </h3>
+                            <span class="text-[10px] sm:text-xs text-slate-500" id="history-count">共 0 筆紀錄</span>
+                        </div>
+
+                        <div class="flex-grow overflow-hidden flex flex-col justify-start min-h-[300px]" id="history-list">
+                            <!-- History items inserted via JS -->
+                        </div>
+
+                        <!-- History Pagination Controls -->
+                        <div id="history-pagination" class="pt-2.5 mt-auto border-t border-slate-200 flex justify-between items-center text-xs shrink-0 min-h-[40px]">
+                            <span class="text-[11px] text-slate-500" id="page-info">頁次 0 / 0</span>
+                            <div class="flex items-center space-x-1.5">
+                                <button type="button" onclick="changeHistoryPage(-1)" id="btn-prev-page" class="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-slate-700 transition font-medium cursor-pointer">
+                                    <i class="fa-solid fa-chevron-left mr-1"></i>上一頁
+                                </button>
+                                <button type="button" onclick="changeHistoryPage(1)" id="btn-next-page" class="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-slate-700 transition font-medium cursor-pointer">
+                                    下一頁<i class="fa-solid fa-chevron-right ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Supabase Settings -->
+    <div id="supabase-config-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center shadow-sm">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-database text-amber-400 mr-2"></i>Supabase 連線設定</h3>
+                <button onclick="closeModal('supabase-config-modal')" class="text-slate-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form class="p-6 space-y-4" onsubmit="saveSupabaseConfig(event)">
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    請輸入您的 Supabase Project URL 及 API Anon Key，資料將即時同步至專案中的 <code class="bg-slate-100 text-amber-800 px-1 rounded">members</code> 與 <code class="bg-slate-100 text-amber-800 px-1 rounded">transactions</code> 資料表。
+                </p>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Project URL <span class="text-rose-500">*</span></label>
+                    <input type="url" id="sb-url" required placeholder="https://your-project.supabase.co" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Anon Key <span class="text-rose-500">*</span></label>
+                    <input type="password" id="sb-key" required placeholder="eyJhbGciOi..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('supabase-config-modal')" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition-all">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95">儲存並連線</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add / Edit Member -->
+    <div id="add-member-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-amber-600 text-white px-6 py-4 flex justify-between items-center shadow-sm">
+                <h3 class="font-bold text-lg" id="modal-member-title">新增會員資料</h3>
+                <button onclick="closeModal('add-member-modal')" class="text-amber-100 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="member-form" class="p-6 space-y-4" onsubmit="handleSaveMember(event)">
+                <input type="hidden" id="form-member-id">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">會員姓名 <span class="text-rose-500">*</span></label>
+                    <input type="text" id="form-name" required placeholder="請輸入姓名" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">電話號碼 <span class="text-rose-500">*</span></label>
+                    <input type="tel" id="form-phone" required placeholder="0912345678" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">性別 / 稱謂</label>
+                        <select id="form-gender" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <option value="小姐">小姐</option>
+                            <option value="先生">先生</option>
+                            <option value="VIP">VIP</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">生日</label>
+                        <input type="date" id="form-birthday" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">喜好 / 備註</label>
+                    <textarea id="form-note" rows="2" placeholder="例如：去冰半糖、喜歡淺焙..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('add-member-modal')" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition-all">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95">儲存會員</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Deposit -->
+    <div id="deposit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-emerald-600 text-white px-6 py-4 flex justify-between items-center shadow-sm">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-wallet mr-2"></i>會員儲值</h3>
+                <button onclick="closeModal('deposit-modal')" class="text-emerald-100 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="deposit-form" class="p-6 space-y-4" onsubmit="handleDeposit(event)">
+                <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs text-emerald-800">
+                    正在為 <strong id="deposit-member-name" class="text-sm">--</strong> 辦理儲值
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">儲值本金 (元) <span class="text-rose-500">*</span></label>
+                    <input type="number" id="deposit-amount" required min="1" step="1" placeholder="請輸入實收金額" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none text-lg font-bold text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">額外贈送金額 (元)</label>
+                    <input type="number" id="deposit-bonus" min="0" step="1" value="0" placeholder="活動贈送金額" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none text-purple-700 font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">儲值備註 / 活動名稱</label>
+                    <input type="text" id="deposit-note" placeholder="例如：新春滿千送百活動" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-xs font-semibold text-slate-600">快速加入活動名稱</label>
+                        <button type="button" onclick="openQuickNotesManager()" class="text-xs text-emerald-700 hover:text-emerald-900 font-medium flex items-center cursor-pointer">
+                            <i class="fa-solid fa-gear mr-1"></i> 管理標籤
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2" id="quick-notes-container">
+                        <!-- Loaded dynamically via JS -->
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('deposit-modal')" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition-all">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95">確認儲值</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Quick Deposit Notes Manager -->
+    <div id="quick-notes-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center shadow-sm">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-tags mr-2"></i>管理儲值活動標籤</h3>
+                <button onclick="closeModal('quick-notes-modal')" class="text-slate-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex space-x-2">
+                    <input type="text" id="new-quick-note-input" placeholder="輸入新活動名稱..." class="flex-grow px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <button type="button" onclick="addQuickDepositNote()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap">
+                        <i class="fa-solid fa-plus mr-1"></i> 新增
+                    </button>
+                </div>
+                <p class="text-xs text-slate-400">點擊右側 ✕ 可移除標籤；點擊標籤名稱可直接進行編輯：</p>
+                <div class="max-h-60 overflow-y-auto custom-scroll space-y-2 border border-slate-200 p-2 rounded-xl bg-slate-50" id="managed-notes-list">
+                    <!-- Managed list items rendered via JS -->
+                </div>
+                <div class="flex justify-end pt-2">
+                    <button type="button" onclick="closeModal('quick-notes-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-medium transition-all">完成並返回</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Spend / Deduction -->
+    <div id="spend-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-amber-600 text-white px-6 py-4 flex justify-between items-center shadow-sm">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-bag-shopping mr-2"></i>會員扣款消費</h3>
+                <button onclick="closeModal('spend-modal')" class="text-amber-100 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="spend-form" class="p-6 space-y-4" onsubmit="handleSpend(event)">
+                <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 flex justify-between items-center text-xs">
+                    <span class="text-slate-600">會員：<strong id="spend-member-name" class="text-slate-800 text-sm">--</strong></span>
+                    <span class="text-slate-600">可用總餘額：<strong id="spend-member-balance" class="text-amber-700 text-sm">$0</strong></span>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-semibold text-slate-600">應扣總金額 (元) <span class="text-rose-500">*</span></label>
+                        <span id="spend-balance-warning" class="text-[11px] font-bold text-rose-600 hidden flex items-center">
+                            <i class="fa-solid fa-circle-exclamation mr-1"></i>餘額不足！
+                        </span>
+                    </div>
+                    <input type="number" id="spend-amount" required min="1" step="1" placeholder="請輸入金額" oninput="validateSpendAmount()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none text-lg font-bold text-slate-800 transition-colors duration-200">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">扣款優先順序</label>
+                    <select id="spend-priority" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white">
+                        <option value="bonus-first">優先扣除「贈送金」 (貼心熱門選項)</option>
+                        <option value="real-first">優先扣除「儲值本金」</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">消費備註 / 明細</label>
+                    <input type="text" id="spend-note" placeholder="例如：內用冰拿鐵 2 杯" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-xs font-semibold text-slate-600">快速品項點餐 (點擊累加金額)</label>
+                        <button type="button" onclick="openQuickItemsManager()" class="text-xs text-amber-700 hover:text-amber-900 font-medium flex items-center cursor-pointer">
+                            <i class="fa-solid fa-gear mr-1"></i> 管理品項
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mb-2" id="quick-items-container">
+                        <!-- Loaded dynamically via JS -->
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('spend-modal')" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition-all">取消</button>
+                    <button type="submit" id="spend-submit-btn" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95">確認扣款</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Quick Items Manager -->
+    <div id="quick-items-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-amber-600 text-white px-6 py-4 flex justify-between items-center shadow-sm">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-list-check mr-2"></i>管理點餐快速品項與價格</h3>
+                <button onclick="closeModal('quick-items-modal')" class="text-amber-100 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-12 gap-2">
+                    <input type="text" id="new-item-name-input" placeholder="品項名稱 (例: 焦糖瑪奇朵)" class="col-span-6 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    <input type="number" id="new-item-price-input" min="1" placeholder="單價 $" class="col-span-3 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    <button type="button" onclick="addQuickItemSetting()" class="col-span-3 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap">
+                        <i class="fa-solid fa-plus mr-1"></i> 新增
+                    </button>
+                </div>
+                <p class="text-xs text-slate-400">可直接編輯名稱與價格，點擊右側 🗑️ 可移除品項：</p>
+                <div class="max-h-60 overflow-y-auto custom-scroll space-y-2 border border-slate-200 p-2 rounded-xl bg-slate-50" id="managed-items-list">
+                    <!-- Managed quick menu items rendered via JS -->
+                </div>
+                <div class="flex justify-end pt-2">
+                    <button type="button" onclick="closeModal('quick-items-modal')" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95">完成並返回</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Confirmation for Voiding Transaction -->
+    <div id="void-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden p-6 text-center space-y-4">
+            <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto text-xl shadow-sm">
+                <i class="fa-solid fa-rotate-left"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 text-lg">確認辦理沖銷 / 退款？</h3>
+            <p class="text-xs text-slate-500 leading-relaxed" id="void-modal-desc">
+                您確定要作廢此筆紀錄？此動作將會回推帳戶餘額。
+            </p>
+            <div class="flex space-x-3 pt-2">
+                <button type="button" onclick="closeModal('void-confirm-modal')" class="flex-1 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition-all">取消</button>
+                <button type="button" onclick="executeVoidTransaction()" class="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95">確定作廢</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Confirmation for Deleting Member -->
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden p-6 text-center space-y-4">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl shadow-sm">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 text-lg">刪除會員資料</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                您確定要刪除會員「<strong id="delete-member-name" class="text-slate-800">--</strong>」嗎？此動作將無法復原。
+            </p>
+            <div class="flex space-x-3 pt-2">
+                <button type="button" onclick="closeModal('delete-confirm-modal')" class="flex-1 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition-all">取消</button>
+                <button type="button" onclick="executeDeleteMember()" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95">確定刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Alert Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-3">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-msg" class="text-xs font-medium">提示訊息</span>
+    </div>
+
+    <script>
+        // Supabase Client Reference
+        let supabaseClient = null;
+
+        // Application State Management
+        let members = [];
+        let selectedMemberId = null;
+        let pendingVoidTxId = null;
+        let currentHistoryPage = 1;
+        const HISTORY_PER_PAGE = 5;
+
+        let currentMemberPage = 1;
+        const MEMBERS_PER_PAGE = 8;
+        let currentUser = null;
+
+        // Quick Settings Preset Data
+        let quickDepositNotes = ['新春滿千送百', '儲值 $1000 送 $200', ' VIP 週年慶特惠'];
+        let quickMenuItems = [
+            { name: '美式咖啡', price: 90 },
+            { name: '拿鐵咖啡', price: 120 },
+            { name: '燕麥奶拿鐵', price: 140 },
+            { name: '卡布奇諾', price: 120 },
+            { name: '手沖精品', price: 160 },
+            { name: '招牌肉桂捲', price: 110 }
+        ];
+
+        // 系統時間更新 (改為 12 小時制，顯示 上午/下午 HH:mm)
+        function updateClock() {
+            const timeEl = document.getElementById('current-time');
+            if (!timeEl) return;
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? '下午' : '上午';
+            
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 小時轉為 12
+            const hoursStr = String(hours).padStart(2, '0');
+
+            timeEl.innerText = `${year}/${month}/${date} ${ampm} ${hoursStr}:${minutes}`;
+        }
+
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', () => {
+            updateClock();
+            setInterval(updateClock, 10000);
+
+            document.getElementById('search-input').addEventListener('input', () => {
+                currentMemberPage = 1;
+                renderMemberList();
+            });
+
+            // Initialize Supabase Configuration
+            initSupabase();
+        });
+
+        // Supabase Auth & State Handlers
+        async function handleLogin(e) {
+            e.preventDefault();
+            if (!supabaseClient) {
+                showToast('請先完成 Supabase 連線設定', 'error');
+                return;
+            }
+
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const submitBtn = document.getElementById('btn-login-submit');
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 登入中...`;
+
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                showToast('登入成功！');
+                document.getElementById('login-form').reset();
+            } catch (err) {
+                console.error(err);
+                showToast('登入失敗: ' + (err.message || '帳號或密碼錯誤'), 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> 登入系統`;
+            }
+        }
+
+        async function handleSignOut() {
+            if (!supabaseClient) return;
+            try {
+                await supabaseClient.auth.signOut();
+                showToast('已安全登出');
+            } catch (err) {
+                console.error(err);
+                showToast('登出發生錯誤', 'error');
+            }
+        }
+
+        function updateAuthStateUI(user) {
+            currentUser = user;
+            const loginContainer = document.getElementById('login-container');
+            const dashboard = document.getElementById('app-dashboard');
+            const authUserInfo = document.getElementById('auth-user-info');
+            const userEmailTag = document.getElementById('user-email-tag');
+
+            if (user) {
+                loginContainer.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+                authUserInfo.classList.remove('hidden');
+                authUserInfo.classList.add('flex');
+                userEmailTag.innerText = user.email;
+                fetchMembersFromSupabase();
+            } else {
+                loginContainer.classList.remove('hidden');
+                dashboard.classList.add('hidden');
+                authUserInfo.classList.add('hidden');
+                authUserInfo.classList.remove('flex');
+                members = [];
+                clearSelection();
+            }
+        }
+
+        // Supabase Initialization & Operations
+        function initSupabase() {
+            const sbUrl = localStorage.getItem('cafe_sb_url');
+            const sbKey = localStorage.getItem('cafe_sb_key');
+
+            if (sbUrl && sbKey && window.supabase) {
+                try {
+                    supabaseClient = window.supabase.createClient(sbUrl, sbKey);
+                    updateConnectionBadge(true);
+                    document.getElementById('sb-url').value = sbUrl;
+                    document.getElementById('sb-key').value = sbKey;
+
+                    // Listen to auth state changes
+                    supabaseClient.auth.onAuthStateChange((event, session) => {
+                        updateAuthStateUI(session?.user || null);
+                    });
+
+                } catch(e) {
+                    console.error('Supabase init error:', e);
+                    updateConnectionBadge(false);
+                    showToast('Supabase 連線失敗，請檢查金鑰及 URL', 'error');
+                }
+            } else {
+                updateConnectionBadge(false);
+                openModal('supabase-config-modal');
+            }
+
+            // Load Quick Preset Data
+            const savedNotes = localStorage.getItem('cafe_quick_notes');
+            if (savedNotes) { try { quickDepositNotes = JSON.parse(savedNotes); } catch(e){} }
+
+            const savedItems = localStorage.getItem('cafe_quick_items');
+            if (savedItems) { try { quickMenuItems = JSON.parse(savedItems); } catch(e){} }
+        }
+
+        function updateConnectionBadge(isConnected) {
+            const badge = document.getElementById('connection-badge');
+            if (isConnected) {
+                badge.innerText = 'Supabase 已連線';
+                badge.className = 'text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-normal hidden sm:inline-block';
+            } else {
+                badge.innerText = '未連線 Supabase';
+                badge.className = 'text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 font-normal hidden sm:inline-block';
+            }
+        }
+
+        function saveSupabaseConfig(e) {
+            e.preventDefault();
+            const url = document.getElementById('sb-url').value.trim();
+            const key = document.getElementById('sb-key').value.trim();
+
+            if (!url || !key) return;
+
+            localStorage.setItem('cafe_sb_url', url);
+            localStorage.setItem('cafe_sb_key', key);
+
+            closeModal('supabase-config-modal');
+            showToast('已更新 Supabase 設定，正在重新連線...');
+            initSupabase();
+        }
+
+        async function fetchMembersFromSupabase() {
+            if (!supabaseClient) return;
+
+            try {
+                // Fetch Members
+                const { data: memberData, error: memberErr } = await supabaseClient
+                    .from('members')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (memberErr) throw memberErr;
+
+                // Fetch Transactions
+                const { data: txData, error: txErr } = await supabaseClient
+                    .from('transactions')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (txErr) throw txErr;
+
+                // Map data together
+                members = (memberData || []).map(m => {
+                    const memberTxs = (txData || []).filter(t => t.member_id === m.id).map(t => ({
+                        id: t.id,
+                        type: t.type,
+                        realAmount: Number(t.real_amount || 0),
+                        bonusAmount: Number(t.bonus_amount || 0),
+                        amount: Number(t.amount || 0),
+                        usedReal: Number(t.used_real || 0),
+                        usedBonus: Number(t.used_bonus || 0),
+                        note: t.note,
+                        time: t.time,
+                        status: t.status
+                    }));
+
+                    return {
+                        id: m.id,
+                        name: m.name,
+                        phone: m.phone,
+                        gender: m.gender,
+                        birthday: m.birthday || '',
+                        note: m.note || '',
+                        realBalance: Number(m.real_balance || 0),
+                        bonusBalance: Number(m.bonus_balance || 0),
+                        totalSpent: Number(m.total_spent || 0),
+                        history: memberTxs
+                    };
+                });
+
+                updateStats();
+                renderMemberList();
+
+                if (selectedMemberId && members.some(m => m.id === selectedMemberId)) {
+                    selectMember(selectedMemberId);
+                } else if (members.length > 0) {
+                    selectMember(members[0].id);
+                } else {
+                    clearSelection();
+                }
+
+            } catch (error) {
+                console.error('Fetch data error:', error);
+                showToast('讀取雲端資料失敗: ' + error.message, 'error');
+            }
+        }
+
+        function saveLocalPresets() {
+            localStorage.setItem('cafe_quick_notes', JSON.stringify(quickDepositNotes));
+            localStorage.setItem('cafe_quick_items', JSON.stringify(quickMenuItems));
+        }
+
+        // Stats Dashboard Calculation
+        function updateStats() {
+            document.getElementById('stat-total-members').innerText = members.length;
+            
+            let totalDeposit = 0;
+            let totalBonus = 0;
+            let totalSpent = 0;
+
+            members.forEach(m => {
+                totalDeposit += m.realBalance || 0;
+                totalBonus += m.bonusBalance || 0;
+                totalSpent += m.totalSpent || 0;
+            });
+
+            document.getElementById('stat-total-deposit').innerText = `$${totalDeposit.toLocaleString()}`;
+            document.getElementById('stat-total-bonus').innerText = `$${totalBonus.toLocaleString()}`;
+            document.getElementById('stat-total-spent').innerText = `$${totalSpent.toLocaleString()}`;
+        }
+
+        // Render Left Panel Member List
+        function renderMemberList() {
+            const listEl = document.getElementById('member-list');
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            
+            const filtered = members.filter(m => 
+                m.name.toLowerCase().includes(query) || m.phone.includes(query)
+            );
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-10 text-slate-400 text-xs">
+                        <i class="fa-solid fa-user-slash text-2xl mb-2"></i>
+                        <p>未找到符合條件的會員</p>
+                    </div>
+                `;
+                document.getElementById('member-page-info').innerText = '頁次 0 / 0';
+                document.getElementById('btn-member-prev-page').disabled = true;
+                document.getElementById('btn-member-next-page').disabled = true;
+                return;
+            }
+
+            const totalPages = Math.ceil(filtered.length / MEMBERS_PER_PAGE) || 1;
+            if (currentMemberPage > totalPages) currentMemberPage = totalPages;
+            if (currentMemberPage < 1) currentMemberPage = 1;
+
+            const startIndex = (currentMemberPage - 1) * MEMBERS_PER_PAGE;
+            const paginatedMembers = filtered.slice(startIndex, startIndex + MEMBERS_PER_PAGE);
+
+            listEl.innerHTML = paginatedMembers.map(m => {
+                const totalBal = m.realBalance + m.bonusBalance;
+                const isSelected = m.id === selectedMemberId;
+                return `
+                    <div onclick="selectMember('${m.id}')" class="p-3 sm:p-3.5 border-b border-slate-100 hover:bg-amber-50/60 cursor-pointer transition-all duration-150 shrink-0 ${isSelected ? 'bg-amber-50/90 border-l-4 border-l-amber-600 pl-2.5' : 'bg-white/40'}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="font-bold text-xs sm:text-sm text-slate-800">${escapeHtml(m.name)}</span>
+                                <span class="text-[10px] sm:text-xs text-slate-500 ml-1.5">${escapeHtml(m.gender)}</span>
+                            </div>
+                            <span class="text-xs font-bold ${totalBal > 0 ? 'text-amber-700' : 'text-slate-400'}">$${totalBal.toLocaleString()}</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-1 text-[11px] text-slate-500">
+                            <span><i class="fa-solid fa-phone text-[10px] mr-1 text-slate-400"></i>${m.phone}</span>
+                            <span class="text-[10px] text-slate-400">本$${m.realBalance} + 贈$${m.bonusBalance}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('member-page-info').innerText = `頁次 ${currentMemberPage} / ${totalPages}`;
+            document.getElementById('btn-member-prev-page').disabled = (currentMemberPage <= 1);
+            document.getElementById('btn-member-next-page').disabled = (currentMemberPage >= totalPages);
+        }
+
+        function changeMemberPage(delta) {
+            currentMemberPage += delta;
+            renderMemberList();
+        }
+
+        function selectMember(id) {
+            selectedMemberId = id;
+            currentHistoryPage = 1;
+            const member = members.find(m => m.id === id);
+            
+            if (!member) {
+                clearSelection();
+                return;
+            }
+
+            document.getElementById('no-member-selected').classList.add('hidden');
+            const detailPanel = document.getElementById('member-detail-panel');
+            detailPanel.classList.remove('hidden');
+            detailPanel.classList.add('flex');
+
+            document.getElementById('detail-name').innerText = member.name;
+            document.getElementById('detail-gender').innerText = member.gender;
+            document.getElementById('detail-phone').innerText = member.phone;
+            document.getElementById('detail-birthday').innerText = member.birthday || '未設定';
+            document.getElementById('detail-real-balance').innerText = `$${member.realBalance.toLocaleString()}`;
+            document.getElementById('detail-bonus-balance').innerText = `$${member.bonusBalance.toLocaleString()}`;
+            document.getElementById('detail-total-balance').innerText = `$${(member.realBalance + member.bonusBalance).toLocaleString()}`;
+            document.getElementById('detail-total-spent').innerText = `$${member.totalSpent.toLocaleString()}`;
+            document.getElementById('detail-note').innerText = member.note || '無';
+
+            renderMemberList();
+            renderTransactionHistory(member);
+        }
+
+        function clearSelection() {
+            selectedMemberId = null;
+            document.getElementById('no-member-selected').classList.remove('hidden');
+            const detailPanel = document.getElementById('member-detail-panel');
+            detailPanel.classList.add('hidden');
+            detailPanel.classList.remove('flex');
+            renderMemberList();
+        }
+
+        // Render Transaction History
+        function renderTransactionHistory(member) {
+            const historyListEl = document.getElementById('history-list');
+            const history = member.history || [];
+
+            document.getElementById('history-count').innerText = `共 ${history.length} 筆紀錄`;
+
+            if (history.length === 0) {
+                historyListEl.innerHTML = `
+                    <div class="text-center py-12 text-slate-400 text-xs">
+                        <i class="fa-solid fa-receipt text-3xl mb-2"></i>
+                        <p>尚無任何交易或消費紀錄</p>
+                    </div>
+                `;
+                document.getElementById('page-info').innerText = '頁次 0 / 0';
+                document.getElementById('btn-prev-page').disabled = true;
+                document.getElementById('btn-next-page').disabled = true;
+                return;
+            }
+
+            const totalPages = Math.ceil(history.length / HISTORY_PER_PAGE);
+            if (currentHistoryPage > totalPages) currentHistoryPage = totalPages;
+            if (currentHistoryPage < 1) currentHistoryPage = 1;
+
+            const startIndex = (currentHistoryPage - 1) * HISTORY_PER_PAGE;
+            const paginatedItems = history.slice(startIndex, startIndex + HISTORY_PER_PAGE);
+
+            historyListEl.innerHTML = paginatedItems.map(h => {
+                const isDeposit = h.type === 'deposit';
+                const isVoid = h.status === 'voided';
+                
+                let typeBadge = isDeposit 
+                    ? `<span class="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-medium"><i class="fa-solid fa-plus text-[9px] mr-1"></i>儲值</span>`
+                    : `<span class="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-medium"><i class="fa-solid fa-minus text-[9px] mr-1"></i>扣款消費</span>`;
+
+                if (isVoid) {
+                    typeBadge += ` <span class="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-medium line-through">已作廢</span>`;
+                }
+
+                let amountText = '';
+                if (isDeposit) {
+                    amountText = `<span class="font-bold text-emerald-600 text-sm ${isVoid ? 'line-through opacity-50' : ''}">+$${h.realAmount}</span>`;
+                    if (h.bonusAmount > 0) {
+                        amountText += ` <span class="text-xs font-semibold text-purple-600 ${isVoid ? 'line-through opacity-50' : ''}">(送+$${h.bonusAmount})</span>`;
+                    }
+                } else {
+                    amountText = `<span class="font-bold text-amber-700 text-sm ${isVoid ? 'line-through opacity-50' : ''}">-$${h.amount}</span>`;
+                }
+
+                return `
+                    <div class="py-2.5 px-1 border-b border-slate-100 shrink-0 flex justify-between items-center ${isVoid ? 'bg-slate-50/60 opacity-60' : ''}">
+                        <div class="space-y-0.5 min-w-0 pr-2">
+                            <div class="flex items-center space-x-2">
+                                ${typeBadge}
+                                <span class="text-[11px] text-slate-400">${h.time}</span>
+                            </div>
+                            <p class="text-xs font-medium text-slate-700 truncate">${escapeHtml(h.note || '未填寫備註')}</p>
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <div class="text-right">
+                                ${amountText}
+                            </div>
+                            ${!isVoid ? `
+                                <button onclick="promptVoidTransaction('${h.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" title="作廢/沖銷">
+                                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('page-info').innerText = `頁次 ${currentHistoryPage} / ${totalPages}`;
+            document.getElementById('btn-prev-page').disabled = (currentHistoryPage <= 1);
+            document.getElementById('btn-next-page').disabled = (currentHistoryPage >= totalPages);
+        }
+
+        function changeHistoryPage(delta) {
+            currentHistoryPage += delta;
+            const member = members.find(m => m.id === selectedMemberId);
+            if (member) renderTransactionHistory(member);
+        }
+
+        function openAddMemberModal() {
+            document.getElementById('modal-member-title').innerText = '新增會員資料';
+            document.getElementById('member-form').reset();
+            document.getElementById('form-member-id').value = '';
+            openModal('add-member-modal');
+        }
+
+        function editCurrentMember() {
+            const member = members.find(m => m.id === selectedMemberId);
+            if (!member) return;
+
+            document.getElementById('modal-member-title').innerText = '編輯會員資料';
+            document.getElementById('form-member-id').value = member.id;
+            document.getElementById('form-name').value = member.name;
+            document.getElementById('form-phone').value = member.phone;
+            document.getElementById('form-gender').value = member.gender;
+            document.getElementById('form-birthday').value = member.birthday || '';
+            document.getElementById('form-note').value = member.note || '';
+
+            openModal('add-member-modal');
+        }
+
+        async function handleSaveMember(e) {
+            e.preventDefault();
+            if (!supabaseClient) {
+                showToast('請先連線 Supabase！', 'error');
+                return;
+            }
+
+            const id = document.getElementById('form-member-id').value;
+            const name = document.getElementById('form-name').value.trim();
+            const phone = document.getElementById('form-phone').value.trim();
+            const gender = document.getElementById('form-gender').value;
+            const rawBirthday = document.getElementById('form-birthday').value;
+            const birthday = rawBirthday ? rawBirthday : null;
+            const note = document.getElementById('form-note').value.trim();
+
+            if (!name || !phone) return;
+
+            const existingPhoneMember = members.find(m => m.phone === phone && m.id !== id);
+            if (existingPhoneMember) {
+                showToast(`電話號碼 ${phone} 已由會員「${existingPhoneMember.name}」使用！`, 'error');
+                document.getElementById('form-phone').focus();
+                return;
+            }
+
+            try {
+                if (id) {
+                    // Update in Supabase
+                    const { error } = await supabaseClient
+                        .from('members')
+                        .update({ name, phone, gender, birthday, note })
+                        .eq('id', id);
+
+                    if (error) throw error;
+                    showToast('會員資料更新成功！');
+                } else {
+                    // Insert into Supabase
+                    const newId = 'm_' + Date.now();
+                    const { error } = await supabaseClient
+                        .from('members')
+                        .insert({
+                            id: newId,
+                            name,
+                            phone,
+                            gender,
+                            birthday,
+                            note,
+                            real_balance: 0,
+                            bonus_balance: 0,
+                            total_spent: 0
+                        });
+
+                    if (error) throw error;
+                    selectedMemberId = newId;
+                    currentMemberPage = 1;
+                    showToast('已新增會員！');
+                }
+
+                closeModal('add-member-modal');
+                await fetchMembersFromSupabase();
+
+            } catch (err) {
+                console.error(err);
+                showToast('儲存會員失敗: ' + err.message, 'error');
+            }
+        }
+
+        function confirmDeleteCurrentMember() {
+            const member = members.find(m => m.id === selectedMemberId);
+            if (!member) return;
+            document.getElementById('delete-member-name').innerText = member.name;
+            openModal('delete-confirm-modal');
+        }
+
+        async function executeDeleteMember() {
+            if (!selectedMemberId || !supabaseClient) return;
+
+            try {
+                // Delete transactions first to avoid foreign key constraint error
+                const { error: txDelErr } = await supabaseClient.from('transactions').delete().eq('member_id', selectedMemberId);
+                if (txDelErr) console.warn('Clean transactions warn:', txDelErr);
+
+                // Delete member
+                const { error } = await supabaseClient.from('members').delete().eq('id', selectedMemberId);
+                if (error) throw error;
+
+                closeModal('delete-confirm-modal');
+                showToast('已成功刪除會員資料');
+                selectedMemberId = null;
+                await fetchMembersFromSupabase();
+
+            } catch (err) {
+                console.error(err);
+                showToast('刪除會員失敗: ' + err.message, 'error');
+            }
+        }
+
+        async function handleDeposit(e) {
+            e.preventDefault();
+            if (!supabaseClient) return;
+
+            const member = members.find(m => m.id === selectedMemberId);
+            if (!member) return;
+
+            const realAmt = parseInt(document.getElementById('deposit-amount').value) || 0;
+            const bonusAmt = parseInt(document.getElementById('deposit-bonus').value) || 0;
+            const note = document.getElementById('deposit-note').value.trim() || '會員儲值';
+
+            if (realAmt <= 0) return;
+
+            const updatedRealBalance = member.realBalance + realAmt;
+            const updatedBonusBalance = member.bonusBalance + bonusAmt;
+
+            try {
+                const txId = 'tx_' + Date.now();
+                const { error: txErr } = await supabaseClient
+                    .from('transactions')
+                    .insert({
+                        id: txId,
+                        member_id: member.id,
+                        type: 'deposit',
+                        real_amount: realAmt,
+                        bonus_amount: bonusAmt,
+                        note: note,
+                        time: formatDate(new Date()),
+                        status: 'valid'
+                    });
+
+                if (txErr) throw txErr;
+
+                const { error: mErr } = await supabaseClient
+                    .from('members')
+                    .update({
+                        real_balance: updatedRealBalance,
+                        bonus_balance: updatedBonusBalance
+                    })
+                    .eq('id', member.id);
+
+                if (mErr) throw mErr;
+
+                closeModal('deposit-modal');
+                showToast(`成功儲值本金 $${realAmt}` + (bonusAmt > 0 ? ` (贈送 $${bonusAmt})` : ''));
+                await fetchMembersFromSupabase();
+
+            } catch (err) {
+                console.error(err);
+                showToast('儲值失敗: ' + err.message, 'error');
+            }
+        }
+
+        function renderQuickNotes() {
+            const container = document.getElementById('quick-notes-container');
+            container.innerHTML = quickDepositNotes.map(n => `
+                <button type="button" onclick="setDepositNote('${escapeHtml(n)}')" class="px-2 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 border border-slate-200 rounded-lg text-xs truncate transition cursor-pointer">
+                    ${escapeHtml(n)}
+                </button>
+            `).join('');
+        }
+
+        function setDepositNote(val) {
+            document.getElementById('deposit-note').value = val;
+        }
+
+        function openQuickNotesManager() {
+            renderManagedNotesList();
+            openModal('quick-notes-modal');
+        }
+
+        function renderManagedNotesList() {
+            const container = document.getElementById('managed-notes-list');
+            if (quickDepositNotes.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 py-2 text-center">尚無活動標籤</p>`;
+                return;
+            }
+            container.innerHTML = quickDepositNotes.map((note, index) => `
+                <div class="flex items-center space-x-2 bg-white p-2 rounded-lg border border-slate-200">
+                    <input type="text" value="${escapeHtml(note)}" onchange="updateQuickDepositNote(${index}, this.value)" class="flex-grow text-xs px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <button type="button" onclick="removeQuickDepositNote(${index})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition cursor-pointer">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addQuickDepositNote() {
+            const input = document.getElementById('new-quick-note-input');
+            const val = input.value.trim();
+            if (!val) return;
+            quickDepositNotes.push(val);
+            input.value = '';
+            saveLocalPresets();
+            renderManagedNotesList();
+            renderQuickNotes();
+        }
+
+        function updateQuickDepositNote(index, val) {
+            const trimmed = val.trim();
+            if (trimmed) {
+                quickDepositNotes[index] = trimmed;
+                saveLocalPresets();
+                renderQuickNotes();
+            }
+        }
+
+        function removeQuickDepositNote(index) {
+            quickDepositNotes.splice(index, 1);
+            saveLocalPresets();
+            renderManagedNotesList();
+            renderQuickNotes();
+        }
+
+        function validateSpendAmount() {
+            const member = members.find(m => m.id === selectedMemberId);
+            if (!member) return;
+
+            const input = document.getElementById('spend-amount');
+            const warning = document.getElementById('spend-balance-warning');
+            const submitBtn = document.getElementById('spend-submit-btn');
+            const val = parseInt(input.value) || 0;
+            const totalBal = member.realBalance + member.bonusBalance;
+
+            if (val > totalBal || val <= 0) {
+                warning.classList.remove('hidden');
+                input.classList.add('border-rose-500', 'text-rose-600');
+                submitBtn.disabled = true;
+            } else {
+                warning.classList.add('hidden');
+                input.classList.remove('border-rose-500', 'text-rose-600');
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function handleSpend(e) {
+            e.preventDefault();
+            if (!supabaseClient) return;
+
+            const member = members.find(m => m.id === selectedMemberId);
+            if (!member) return;
+
+            const spendAmt = parseInt(document.getElementById('spend-amount').value) || 0;
+            const priority = document.getElementById('spend-priority').value;
+            const note = document.getElementById('spend-note').value.trim() || '門市消費';
+            const totalBal = member.realBalance + member.bonusBalance;
+
+            if (spendAmt <= 0 || spendAmt > totalBal) {
+                showToast('金額不合法或餘額不足', 'error');
+                return;
+            }
+
+            let usedReal = 0;
+            let usedBonus = 0;
+
+            if (priority === 'bonus-first') {
+                if (member.bonusBalance >= spendAmt) {
+                    usedBonus = spendAmt;
+                } else {
+                    usedBonus = member.bonusBalance;
+                    usedReal = spendAmt - usedBonus;
+                }
+            } else {
+                if (member.realBalance >= spendAmt) {
+                    usedReal = spendAmt;
+                } else {
+                    usedReal = member.realBalance;
+                    usedBonus = spendAmt - usedReal;
+                }
+            }
+
+            const updatedRealBalance = member.realBalance - usedReal;
+            const updatedBonusBalance = member.bonusBalance - usedBonus;
+            const updatedTotalSpent = member.totalSpent + spendAmt;
+
+            try {
+                const txId = 'tx_' + Date.now();
+                const { error: txErr } = await supabaseClient
+                    .from('transactions')
+                    .insert({
+                        id: txId,
+                        member_id: member.id,
+                        type: 'spend',
+                        amount: spendAmt,
+                        used_real: usedReal,
+                        used_bonus: usedBonus,
+                        note: note,
+                        time: formatDate(new Date()),
+                        status: 'valid'
+                    });
+
+                if (txErr) throw txErr;
+
+                const { error: mErr } = await supabaseClient
+                    .from('members')
+                    .update({
+                        real_balance: updatedRealBalance,
+                        bonus_balance: updatedBonusBalance,
+                        total_spent: updatedTotalSpent
+                    })
+                    .eq('id', member.id);
+
+                if (mErr) throw mErr;
+
+                closeModal('spend-modal');
+                showToast(`成功扣款 $${spendAmt}` + (usedBonus > 0 ? ` (包含贈送金 $${usedBonus})` : ''));
+                await fetchMembersFromSupabase();
+
+            } catch (err) {
+                console.error(err);
+                showToast('扣款失敗: ' + err.message, 'error');
+            }
+        }
+
+        function renderQuickItems() {
+            const container = document.getElementById('quick-items-container');
+            container.innerHTML = quickMenuItems.map(item => `
+                <button type="button" onclick="addSpendQuickItem(${item.price}, '${escapeHtml(item.name)}')" class="p-1.5 bg-slate-100 hover:bg-amber-50 hover:text-amber-800 border border-slate-200 rounded-xl text-left transition flex justify-between items-center text-xs cursor-pointer">
+                    <span class="font-medium truncate">${escapeHtml(item.name)}</span>
+                    <span class="font-bold text-amber-700 ml-1">$${item.price}</span>
+                </button>
+            `).join('');
+        }
+
+        function addSpendQuickItem(price, name) {
+            const input = document.getElementById('spend-amount');
+            const noteInput = document.getElementById('spend-note');
+            const curVal = parseInt(input.value) || 0;
+            input.value = curVal + price;
+
+            if (noteInput.value.trim() === '') {
+                noteInput.value = name;
+            } else if (!noteInput.value.includes(name)) {
+                noteInput.value += ` + ${name}`;
+            }
+
+            validateSpendAmount();
+        }
+
+        function openQuickItemsManager() {
+            renderManagedItemsList();
+            openModal('quick-items-modal');
+        }
+
+        function renderManagedItemsList() {
+            const container = document.getElementById('managed-items-list');
+            if (quickMenuItems.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 py-2 text-center">尚無品項標籤</p>`;
+                return;
+            }
+            container.innerHTML = quickMenuItems.map((item, index) => `
+                <div class="grid grid-cols-12 gap-2 bg-white p-2 rounded-lg border border-slate-200 items-center">
+                    <input type="text" value="${escapeHtml(item.name)}" onchange="updateQuickItemSetting(${index}, 'name', this.value)" class="col-span-6 text-xs px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-500">
+                    <input type="number" value="${item.price}" min="1" onchange="updateQuickItemSetting(${index}, 'price', this.value)" class="col-span-4 text-xs px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 font-bold text-slate-700">
+                    <button type="button" onclick="removeQuickItemSetting(${index})" class="col-span-2 text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition text-center cursor-pointer">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addQuickItemSetting() {
+            const nameInput = document.getElementById('new-item-name-input');
+            const priceInput = document.getElementById('new-item-price-input');
+            const name = nameInput.value.trim();
+            const price = parseInt(priceInput.value) || 0;
+
+            if (!name || price <= 0) return;
+
+            quickMenuItems.push({ name, price });
+            nameInput.value = '';
+            priceInput.value = '';
+
+            saveLocalPresets();
+            renderManagedItemsList();
+            renderQuickItems();
+        }
+
+        function updateQuickItemSetting(index, key, val) {
+            if (key === 'name') {
+                const trimmed = val.trim();
+                if (trimmed) quickMenuItems[index].name = trimmed;
+            } else if (key === 'price') {
+                const num = parseInt(val) || 0;
+                if (num > 0) quickMenuItems[index].price = num;
+            }
+            saveLocalPresets();
+            renderQuickItems();
+        }
+
+        function removeQuickItemSetting(index) {
+            quickMenuItems.splice(index, 1);
+            saveLocalPresets();
+            renderManagedItemsList();
+            renderQuickItems();
+        }
+
+        function promptVoidTransaction(txId) {
+            pendingVoidTxId = txId;
+            openModal('void-confirm-modal');
+        }
+
+        async function executeVoidTransaction() {
+            if (!pendingVoidTxId || !selectedMemberId || !supabaseClient) return;
+
+            const member = members.find(m => m.id === selectedMemberId);
+            if (!member) return;
+
+            const tx = member.history.find(h => h.id === pendingVoidTxId);
+            if (!tx || tx.status === 'voided') return;
+
+            let updatedReal = member.realBalance;
+            let updatedBonus = member.bonusBalance;
+            let updatedSpent = member.totalSpent;
+
+            if (tx.type === 'deposit') {
+                updatedReal -= tx.realAmount;
+                updatedBonus -= tx.bonusAmount;
+            } else if (tx.type === 'spend') {
+                updatedReal += tx.usedReal;
+                updatedBonus += tx.usedBonus;
+                updatedSpent -= tx.amount;
+            }
+
+            try {
+                const { error: txErr } = await supabaseClient
+                    .from('transactions')
+                    .update({ status: 'voided' })
+                    .eq('id', tx.id);
+
+                if (txErr) throw txErr;
+
+                const { error: mErr } = await supabaseClient
+                    .from('members')
+                    .update({
+                        real_balance: updatedReal,
+                        bonus_balance: updatedBonus,
+                        total_spent: updatedSpent
+                    })
+                    .eq('id', member.id);
+
+                if (mErr) throw mErr;
+
+                closeModal('void-confirm-modal');
+                showToast('紀錄已作廢，餘額已補回！');
+                pendingVoidTxId = null;
+                await fetchMembersFromSupabase();
+
+            } catch (err) {
+                console.error(err);
+                showToast('作廢失敗: ' + err.message, 'error');
+            }
+        }
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            if (id === 'deposit-modal') {
+                const member = members.find(m => m.id === selectedMemberId);
+                if (member) document.getElementById('deposit-member-name').innerText = member.name;
+                document.getElementById('deposit-form').reset();
+                renderQuickNotes();
+            } else if (id === 'spend-modal') {
+                const member = members.find(m => m.id === selectedMemberId);
+                if (member) {
+                    document.getElementById('spend-member-name').innerText = member.name;
+                    document.getElementById('spend-member-balance').innerText = `$${(member.realBalance + member.bonusBalance).toLocaleString()}`;
+                }
+                document.getElementById('spend-form').reset();
+                validateSpendAmount();
+                renderQuickItems();
+            }
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = msg;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function formatDate(d) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[m];
+            });
+        }
+    </script>
+</body>
+</html>
