@@ -3,7 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XI Coffee Roasters Membership System</title>
+    <title>XI Coffee Roasters Memebership System</title>
+    <!-- PWA & Mobile App Support -->
+    <meta name="theme-color" content="#d97706">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Café VIP">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23d97706' d='M128 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h112c17.7 0 32-14.3 32-32s-14.3-32-32-32H128zm-32 96c-17.7 0-32 14.3-32 32v128c0 70.7 57.3 128 128 128h64c70.7 0 128-57.3 128-128v-16h16c35.3 0 64-28.7 64-64v-32c0-35.3-28.7-64-64-64H96zm336 64h16c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-16V160zM32 480c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32s-14.3-32-32-32H64c-17.7 0-32 14.3-32 32z'/></svg>">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/d97706/ffffff?text=Caf%C3%A9+VIP">
+    <!-- Inline Manifest Data URL for dynamic PWA Installation -->
+    <link rel="manifest" id="manifest-placeholder">
+    <script>
+      // 動態生成 Web App Manifest 配置
+      const manifestData = {
+        name: "XI Coffee Roasters",
+        short_name: "Café VIP",
+        description: "XI Coffee Roasters Memebership System",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#f8fafc",
+        theme_color: "#d97706",
+        icons: [
+          {
+            src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23d97706'/><path fill='%23ffffff' d='M128 64c-17.7 0-32 14.3-32 32s14.3 32 32 32h112c17.7 0 32-14.3 32-32s-14.3-32-32-32H128zm-32 96c-17.7 0-32 14.3-32 32v128c0 70.7 57.3 128 128 128h64c70.7 0 128-57.3 128-128v-16h16c35.3 0 64-28.7 64-64v-32c0-35.3-28.7-64-64-64H96zm336 64h16c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-16V160zM32 480c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32s-14.3-32-32-32H64c-17.7 0-32 14.3-32 32z' transform='scale(0.8) translate(50, 50)'/></svg>",
+            sizes: "192x192 512x512",
+            type: "image/svg+xml",
+            purpose: "any maskable"
+          }
+        ]
+      };
+      const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+      document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(manifestBlob));
+    </script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -81,13 +113,16 @@
                 </div>
                 <div class="truncate">
                     <h1 class="font-bold text-base sm:text-lg text-slate-800 leading-tight tracking-wide flex items-center gap-2 truncate">
-                        <span class="truncate">XI Coffee Roasters</span>
+                        <span class="truncate">Café VIP Member System</span>
                         <span id="connection-badge" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 font-normal hidden sm:inline-block">未連線 Supabase</span>
                     </h1>
                     <p class="text-[11px] sm:text-xs text-slate-500 truncate">會員儲值與消費管理系統 (雲端版)</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-3">
+                <button id="pwa-install-btn" onclick="installPWAApp()" class="hidden px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded-xl font-medium transition flex items-center gap-1.5 shadow-sm cursor-pointer animate-pulse">
+                    <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">安裝至桌面</span>
+                </button>
                 <button onclick="openModal('supabase-config-modal')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs rounded-xl font-medium transition flex items-center gap-1.5 shadow-sm cursor-pointer">
                     <i class="fa-solid fa-database text-amber-400"></i> <span class="hidden sm:inline">Supabase 設定</span>
                 </button>
@@ -111,7 +146,7 @@
                     <i class="fa-solid fa-mug-hot"></i>
                 </div>
                 <h2 class="text-xl sm:text-2xl font-bold text-slate-800">店家管理員登入</h2>
-                <p class="text-xs text-slate-500">請登入帳號以進行咖啡店會員儲值與消費管理</p>
+                <p class="text-xs text-slate-500">請登入帳號以進行會員儲值與消費管理</p>
             </div>
             <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
                 <div>
@@ -562,6 +597,29 @@
         </div>
     </div>
 
+    <div id="pwa-banner" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl z-50 hidden border border-slate-700 flex-col gap-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-amber-600 rounded-xl flex items-center justify-center text-white text-lg font-bold shrink-0">
+                    <i class="fa-solid fa-mug-hot"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold">安裝 Café VIP App</h4>
+                    <p class="text-[11px] text-slate-300">加入 Android 主畫面，方便快速點開收銀系統！</p>
+                </div>
+            </div>
+            <button onclick="dismissPWABanner()" class="text-slate-400 hover:text-white p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+            <button onclick="dismissPWABanner()" class="px-3 py-1.5 text-xs text-slate-300 hover:text-white rounded-lg">稍後再說</button>
+            <button onclick="installPWAApp()" class="px-3.5 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-md transition cursor-pointer flex items-center gap-1.5">
+                <i class="fa-solid fa-download"></i> 立即安裝
+            </button>
+        </div>
+    </div>
+
     <!-- Toast Alert Notification -->
     <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-3">
         <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
@@ -571,6 +629,65 @@
     <script>
         // Supabase Client Reference
         let supabaseClient = null;
+
+        let deferredPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // 阻止 Android 瀏覽器預設跳出提示
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // 顯示頁面上的安裝按鈕與橫幅
+            const installBtn = document.getElementById('pwa-install-btn');
+            const pwaBanner = document.getElementById('pwa-banner');
+            
+            if (installBtn) installBtn.classList.remove('hidden');
+            if (pwaBanner && !localStorage.getItem('cafe_pwa_dismissed')) {
+                pwaBanner.classList.remove('hidden');
+                pwaBanner.classList.add('flex');
+            }
+        });
+
+        async function installPWAApp() {
+            if (!deferredPrompt) {
+                showToast('如未出現提示，請點擊 Chrome 選單「加到主畫面」', 'error');
+                return;
+            }
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                showToast('應用程式已成功安裝至桌面！');
+            }
+            deferredPrompt = null;
+            dismissPWABanner();
+            document.getElementById('pwa-install-btn')?.classList.add('hidden');
+        }
+
+        function dismissPWABanner() {
+            const pwaBanner = document.getElementById('pwa-banner');
+            if (pwaBanner) {
+                pwaBanner.classList.add('hidden');
+                pwaBanner.classList.remove('flex');
+            }
+            localStorage.setItem('cafe_pwa_dismissed', 'true');
+        }
+
+        // 動態註冊動態 Service Worker (讓 PWA 滿足安裝要件)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    self.addEventListener('install', (e) => self.skipWaiting());
+                    self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+                    self.addEventListener('fetch', (e) => {
+                        // Network-first strategy
+                        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Registration failed:', err));
+            });
+        }
 
         // Application State Management
         let members = [];
