@@ -4,59 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XI Coffee Roasters Memebership System</title>
-    
-    <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#d97706">
-    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="XI Coffee">
-    <meta name="application-name" content="XI Coffee">
+    <meta name="mobile-web-app-capable" content="yes">
 
-    <!-- 生成 橙底白字「XI」 App Icon (SVG Data URI & Apple Touch Icon) -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23d97706'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' fill='%23ffffff' font-family='Arial, sans-serif' font-weight='900' font-size='260'>XI</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23d97706'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' fill='%23ffffff' font-family='Arial, sans-serif' font-weight='900' font-size='260'>XI</text></svg>">
-
-    <!-- 動態 Web App Manifest (包含獨立 standalone 模式，避免顯示 Chrome 小圖示) -->
-    <script>
-      (function() {
-        const svgIcon = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23d97706'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' fill='%23ffffff' font-family='Arial, sans-serif' font-weight='900' font-size='260'>XI</text></svg>";
-        
-        const manifest = {
-          name: "XI Coffee",
-          short_name: "XI Coffee",
-          description: "XI Coffee Roasters Memebership System",
-          start_url: "./",
-          scope: "./",
-          display: "standalone",
-          orientation: "portrait",
-          background_color: "#f8fafc",
-          theme_color: "#d97706",
-          icons: [
-            {
-              src: svgIcon,
-              sizes: "192x192 512x512",
-              type: "image/svg+xml",
-              purpose: "any"
-            },
-            {
-              src: svgIcon,
-              sizes: "192x192 512x512",
-              type: "image/svg+xml",
-              purpose: "maskable"
-            }
-          ]
-        };
-
-        const stringManifest = JSON.stringify(manifest);
-        const blob = new Blob([stringManifest], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(blob);
-        const link = document.createElement('link');
-        link.rel = 'manifest';
-        link.href = manifestURL;
-        document.head.appendChild(link);
-      })();
-    </script>
+    <!-- Web Application Manifest (Data URI 嵌入，確保 PWA 獨立安裝無 Chrome 捷徑小圖示) -->
+    <link rel="manifest" id="pwa-manifest">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -130,21 +85,19 @@
     <header class="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-40 shadow-sm">
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                <!-- 橙底白字 XI 圖示 -->
-                <div class="w-9 h-9 bg-amber-600 rounded-xl shadow-md text-white font-black text-lg flex items-center justify-center flex-shrink-0 tracking-tighter">
-                    XI
+                <div class="p-2 bg-amber-600 rounded-xl shadow-md text-white flex-shrink-0">
+                    <i class="fa-solid fa-mug-hot text-lg sm:text-xl"></i>
                 </div>
                 <div class="truncate">
                     <h1 class="font-bold text-base sm:text-lg text-slate-800 leading-tight tracking-wide flex items-center gap-2 truncate">
                         <span class="truncate">XI Coffee Roasters</span>
                         <span id="connection-badge" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 font-normal hidden sm:inline-block">未連線 Supabase</span>
                     </h1>
-                    <p class="text-[11px] sm:text-xs text-slate-500 truncate">會員儲值與消費管理系統</p>
+                    <p class="text-[11px] sm:text-xs text-slate-500 truncate">會員儲值與消費管理系統 (雲端版)</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-3">
-                <!-- PWA 安裝按鈕 -->
-                <button id="pwa-install-btn" onclick="installPWA()" class="hidden px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs rounded-xl font-medium transition flex items-center gap-1.5 shadow-md animate-pulse cursor-pointer">
+                <button id="pwa-install-btn" onclick="installPWA()" class="hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-xl font-medium transition flex items-center gap-1.5 shadow-sm cursor-pointer animate-pulse">
                     <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">安裝 App</span>
                 </button>
                 <button onclick="openModal('supabase-config-modal')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs rounded-xl font-medium transition flex items-center gap-1.5 shadow-sm cursor-pointer">
@@ -166,10 +119,10 @@
     <div id="login-container" class="max-w-md mx-auto my-auto p-4 w-full flex-grow flex items-center justify-center">
         <div class="glass-panel w-full p-6 sm:p-8 rounded-2xl shadow-xl space-y-6">
             <div class="text-center space-y-2">
-                <div class="w-16 h-16 bg-amber-600 text-white font-black text-2xl rounded-2xl flex items-center justify-center mx-auto shadow-lg tracking-tighter">
-                    XI
+                <div class="w-16 h-16 bg-amber-600 text-white rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-lg">
+                    <i class="fa-solid fa-mug-hot"></i>
                 </div>
-                <h2 class="text-xl sm:text-2xl font-bold text-slate-800">XI Coffee 管理登入</h2>
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-800">XI Coffee管理登入</h2>
                 <p class="text-xs text-slate-500">請登入帳號以進行咖啡店會員儲值與消費管理</p>
             </div>
             <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
@@ -628,43 +581,98 @@
     </div>
 
     <script>
-        // PWA Service Worker 動態註冊 (滿足 Android PWA 安裝條件)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
+        let deferredPrompt = null;
+
+        function initPWA() {
+            // 生成 XI Coffee 專屬高畫質咖啡杯 Icon (SVG -> Data URI)
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><rect width="512" height="512" rx="100" fill="%23d97706"/><path d="M160 150h192v20c0 44.2-35.8 80-80 80h-32c-44.2 0-80-35.8-80-80v-20zm192 20h24c22.1 0 40 17.9 40 40s-17.9 40-40 40h-24v-80zM120 380h272v24H120z" fill="white"/></svg>`;
+            const iconDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
+
+            // 動態創建包含展現模式 standalone 與 maskable icon 的 Web Manifest
+            const manifestObj = {
+                "name": "XI Coffee 會員儲值管理系統",
+                "short_name": "XI Coffee",
+                "start_url": "./",
+                "display": "standalone",
+                "background_color": "#f8fafc",
+                "theme_color": "#d97706",
+                "orientation": "portrait",
+                "icons": [
+                    {
+                        "src": iconDataUrl,
+                        "sizes": "192x192",
+                        "type": "image/svg+xml",
+                        "purpose": "any maskable"
+                    },
+                    {
+                        "src": iconDataUrl,
+                        "sizes": "512x512",
+                        "type": "image/svg+xml",
+                        "purpose": "any maskable"
+                    }
+                ]
+            };
+
+            const manifestStr = JSON.stringify(manifestObj);
+            const manifestBlob = new Blob([manifestStr], { type: 'application/json' });
+            document.getElementById('pwa-manifest').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+            // 註冊 Data URI 驅動的 Service Worker 以滿足 PWA 安裝條件
+            if ('serviceWorker' in navigator) {
                 const swCode = `
-                    self.addEventListener('install', (e) => self.skipWaiting());
-                    self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+                    const CACHE_NAME = 'xi-coffee-v1';
+                    self.addEventListener('install', (e) => {
+                        self.skipWaiting();
+                    });
+                    self.addEventListener('activate', (e) => {
+                        e.waitUntil(clients.claim());
+                    });
                     self.addEventListener('fetch', (e) => {
                         e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
                     });
                 `;
-                const blob = new Blob([swCode], { type: 'text/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                
-                navigator.serviceWorker.register(swUrl)
-                    .then(reg => console.log('ServiceWorker 註冊成功'))
-                    .catch(err => console.log('ServiceWorker 註冊失敗:', err));
+                const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(swBlob);
+
+                navigator.serviceWorker.register(swUrl).then(() => {
+                    console.log('XI Coffee PWA ServiceWorker 註冊成功');
+                }).catch(err => {
+                    console.warn('ServiceWorker 註冊說明:', err);
+                });
+            }
+
+            // 監聽 PWA 安裝提示事件
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                const installBtn = document.getElementById('pwa-install-btn');
+                if (installBtn) {
+                    installBtn.classList.remove('hidden');
+                }
+            });
+
+            window.addEventListener('appinstalled', () => {
+                deferredPrompt = null;
+                const installBtn = document.getElementById('pwa-install-btn');
+                if (installBtn) {
+                    installBtn.classList.add('hidden');
+                }
+                showToast('XI Coffee 已成功安裝至桌面！');
             });
         }
-
-        // PWA 安裝提示控制邏輯
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            const installBtn = document.getElementById('pwa-install-btn');
-            if (installBtn) installBtn.classList.remove('hidden');
-        });
 
         async function installPWA() {
             if (!deferredPrompt) return;
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
-                showToast('已開始安裝 XI Coffee APP 至桌面！');
+                showToast('感謝安裝 XI Coffee App！');
             }
             deferredPrompt = null;
-            document.getElementById('pwa-install-btn').classList.add('hidden');
+            const installBtn = document.getElementById('pwa-install-btn');
+            if (installBtn) {
+                installBtn.classList.add('hidden');
+            }
         }
 
         // Supabase Client Reference
@@ -692,7 +700,7 @@
             { name: '招牌肉桂捲', price: 110 }
         ];
 
-        // 系統時間更新 (12 小時制)
+        // 系統時間更新 (改為 12 小時制，顯示 上午/下午 HH:mm)
         function updateClock() {
             const timeEl = document.getElementById('current-time');
             if (!timeEl) return;
@@ -706,7 +714,7 @@
             const ampm = hours >= 12 ? '下午' : '上午';
             
             hours = hours % 12;
-            hours = hours ? hours : 12;
+            hours = hours ? hours : 12; // 0 小時轉為 12
             const hoursStr = String(hours).padStart(2, '0');
 
             timeEl.innerText = `${year}/${month}/${date} ${ampm} ${hoursStr}:${minutes}`;
@@ -716,6 +724,9 @@
         document.addEventListener('DOMContentLoaded', () => {
             updateClock();
             setInterval(updateClock, 10000);
+
+            // 啟動 PWA 特性
+            initPWA();
 
             document.getElementById('search-input').addEventListener('input', () => {
                 currentMemberPage = 1;
@@ -1174,6 +1185,7 @@
 
             try {
                 if (id) {
+                    // Update in Supabase
                     const { error } = await supabaseClient
                         .from('members')
                         .update({ name, phone, gender, birthday, note })
@@ -1182,6 +1194,7 @@
                     if (error) throw error;
                     showToast('會員資料更新成功！');
                 } else {
+                    // Insert into Supabase
                     const newId = 'm_' + Date.now();
                     const { error } = await supabaseClient
                         .from('members')
@@ -1223,9 +1236,11 @@
             if (!selectedMemberId || !supabaseClient) return;
 
             try {
+                // Delete transactions first to avoid foreign key constraint error
                 const { error: txDelErr } = await supabaseClient.from('transactions').delete().eq('member_id', selectedMemberId);
                 if (txDelErr) console.warn('Clean transactions warn:', txDelErr);
 
+                // Delete member
                 const { error } = await supabaseClient.from('members').delete().eq('id', selectedMemberId);
                 if (error) throw error;
 
