@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Xi Coffee Membership">
   
-    <title>咖啡店會員儲值與消費管理系統</title>
+    <title>Xi Coffee Roasters Memebership System</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -89,7 +89,7 @@
                         <span class="truncate">Café VIP Member System</span>
                         <span id="connection-badge" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 font-normal hidden sm:inline-block">未連線 Supabase</span>
                     </h1>
-                    <p class="text-[11px] sm:text-xs text-slate-500 truncate">咖啡店會員儲值與消費管理系統 (Supabase 雲端版)</p>
+                    <p class="text-[11px] sm:text-xs text-slate-500 truncate">會員儲值與消費管理系統 (雲端版)</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-3">
@@ -115,7 +115,7 @@
                 <div class="w-16 h-16 bg-amber-600 text-white rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-lg">
                     <i class="fa-solid fa-mug-hot"></i>
                 </div>
-                <h2 class="text-xl sm:text-2xl font-bold text-slate-800">店家管理員登入</h2>
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-800">Xi Coffee 管理登入</h2>
                 <p class="text-xs text-slate-500">請登入帳號以進行咖啡店會員儲值與消費管理</p>
             </div>
             <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
@@ -579,8 +579,8 @@
 	// Dynamic PWA Web App Manifest Registration
     (function injectPWAManifest() {
       const manifest = {
-        name: "Xi Coffee Roasters Member",
-        short_name: "Xi Membership",
+        name: "Xi Coffee Roasters Membership System",
+        short_name: "Xi Member",
         description: "會員儲值與消費管理系統 (雲端版)",
         start_url: window.location.href,
         display: "standalone",
@@ -588,12 +588,12 @@
         theme_color: "#d97706",
         icons: [
           {
-            src: "https://placehold.co/192x192/d97706/ffffff?text=XiCoffee",
+            src: "https://placehold.co/192x192/d97706/ffffff?text=XiMember",
             sizes: "192x192",
             type: "image/png"
           },
           {
-            src: "https://placehold.co/512x512/d97706/ffffff?text=XiCoffee",
+            src: "https://placehold.co/512x512/d97706/ffffff?text=XiMember",
             sizes: "512x512",
             type: "image/png"
           }
